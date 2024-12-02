@@ -1,0 +1,135 @@
+---
+title: "Peer Review"
+author: 
+date: 
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+require(ggplot2)
+require(ggrepel)
+```
+```{r}
+file_calories = "C:\\Users\\User\\Desktop\\Temp\\data_fastfood_calories.csv"
+file_sales = "C:\\Users\\User\\Desktop\\Temp\\data_fastfood_sales.csv"
+data_calories = read.csv(file_calories)
+data_sales = read.csv(file_sales)
+```
+
+## Problem 1
+```{r}
+data_sales$franchise_proportion <- data_sales$num_franchised_stores / data_sales$unit_count
+ggplot(data = data_sales, aes(x = us_sales, y = unit_count)) +
+  geom_point(aes(color = franchise_proportion), size = 3) +                 
+  scale_x_log10(labels = scales::comma) +                                   
+  scale_y_log10(labels = scales::comma) +                                  
+  geom_text_repel(aes(label = restaurant), size = 3) +                     
+  scale_color_gradient(low = "blue", high = "red", name = "Proportion of stores franchised") + 
+  labs(
+    x = "U.S. sales in millions (log10 scale)",
+    y = "Total number of stores (log10 scale)",
+    title = "U.S. Sales vs Total Number of Stores"
+  ) +
+  theme_classic() +                                                         
+  theme(
+    plot.title = element_text(hjust = 0.5),                                 
+    legend.position = "right"
+  )
+```
+
+## Problem 2
+```{r}
+ggplot(data = data_sales, aes(x = reorder(restaurant, average_sales), y = average_sales)) +
+  geom_bar(stat = "identity", fill = "steelblue") +
+  coord_flip() +
+  geom_text(aes(label = round(average_sales / 1000, 1)), hjust = -0.2, size = 3) +
+  scale_y_continuous(labels = scales::dollar) +
+  labs(
+    x = "Restaurant",
+    y = "Average Sales ($)",
+    title = "Average Sales by Restaurant"
+  ) +
+  theme_classic()
+```
+
+## Problem 3
+
+```{r}
+data_calories =data_calories[!is.na(data_calories$sodium) & !is.na(data_calories$item), ]
+
+ggplot(data = data_calories, aes(x = calories, y = sodium)) +
+  geom_point(color = "steelblue", size = 2) +
+  geom_hline(yintercept = 2300, linetype = "dashed", color = "red") +
+  geom_text_repel(
+    data = subset(data_calories, sodium > 2300 & !is.na(sodium)), 
+    aes(label = item),
+    size = 3
+  ) +
+  facet_wrap(~ restaurant, scales = "free_y") + 
+  labs(
+    x = "Calories",
+    y = "Sodium (mg)",
+    title = "Calories vs Sodium by Restaurant",
+    color = "Sodium Level"
+  ) +
+  theme_classic()
+```
+
+## Problem 4
+```{r}
+data_calories$is_salad = grepl("salad", tolower(data_calories$item))
+
+median_calories = aggregate(calories ~ restaurant, data = data_calories, median)
+data_calories$restaurant <- factor(
+  data_calories$restaurant,
+  levels = median_calories[order(-median_calories$calories), "restaurant"]
+)
+
+ggplot(data = data_calories, aes(x = calories, y = restaurant)) +
+  geom_boxplot(outlier.shape = NA, fill = "gray80") +
+  geom_jitter(aes(color = is_salad), size = 2, width = 0.2, height = 0) +
+  scale_x_log10(labels = scales::comma) +
+  scale_color_manual(values = c("TRUE" = "cyan", "FALSE" = "red"), 
+                     labels = c("Salad", "Not a salad"), 
+                     name = "Is the entree a salad?") +
+  labs(
+    x = "Calories (log10 scale)",
+    y = "Restaurant",
+    title = "Calories by Restaurant with Salad Identification"
+  ) +
+  theme_classic() +
+  theme(
+    plot.title = element_text(hjust = 0.5),
+    axis.text.y = element_text(size = 10),
+    legend.text = element_text(size = 10),
+    legend.title = element_text(size = 10)
+  )
+```
+
+## Problem 5
+```{r}
+data_calories = subset(data_calories, restaurant != "Taco Bell")
+
+median_sugar = aggregate(sugar ~ restaurant, data = data_calories, median)
+colnames(median_sugar)[2] <- "median_sugar"
+
+combined_data <- merge(median_sugar, data_sales, by = "restaurant")
+
+ggplot(data = combined_data, aes(x = reorder(restaurant, us_sales), y = us_sales, fill = median_sugar)) +
+  geom_bar(stat = "identity") +
+  scale_fill_gradient(low = "lightblue", high = "darkblue", name = "Median Sugar") +
+  labs(
+    x = "Restaurant",
+    y = "US Sales (in millions)",
+    title = "US Sales by Restaurant Colored by Median Sugar Content"
+  ) +
+  theme_classic() +
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1),
+    plot.title = element_text(hjust = 0.5)
+  )
+```
